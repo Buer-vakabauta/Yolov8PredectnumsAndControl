@@ -1,0 +1,2 @@
+# Yolov8PredectnumsAndControl
+使用yolov8检测十六进制数字并操控云台控制红外线指向数字位置
