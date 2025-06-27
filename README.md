@@ -9,21 +9,18 @@
 
 ### 📍 主机训练环境
 
-- 操作系统：Windows 10/11
+- 操作系统：Windows 11
 
-- Python 版本：`>=3.8`
+- Python 版本：`>=3.9.23`
 
-- YOLO 框架：`Ultralytics YOLOv8`
+- YOLO 框架：`Ultralytics YOLOv8 8.0.224` 
 
-- 虚拟环境建议：`conda` 或 `venv`
+- 虚拟环境建议：`conda` 
 
 - 关键依赖：
 
   ```
   bash
-  
-  
-  复制编辑
   pip install ultralytics opencv-python numpy matplotlib
   ```
 
@@ -35,12 +32,13 @@
 
 - Python：`3.11`
 
-- 虚拟环境：推荐使用 `venv`，如 `yolov8`
+- 虚拟环境：使用 `venv`， `yolov8`
 
 - 安装依赖：
 
   ```
-  bash复制编辑pip install numpy opencv-python onnxruntime
+  bash
+  pip install numpy opencv-python onnxruntime
   sudo apt install python3-lgpio python3-picamera2 pigpio
   ```
 
@@ -57,14 +55,14 @@
 
 ## 🧱 2. 项目硬件环境
 
-| 硬件         | 型号/说明                                  |
-| ------------ | ------------------------------------------ |
-| 主控板       | 树莓派 5                                   |
-| 摄像头       | 官方 PiCamera2（兼容 OV5647/IMX219 等）    |
-| 舵机         | MG996R 或 SG90（PWM 控制）                 |
-| 舵机控制方式 | GPIO + PWM（推荐使用 `lgpio.tx_pwm` 控制） |
-| 激光模块     | 普通红色激光笔（GPIO 控制开关）            |
-| 电源         | PD 5V 3A 电源或移动电源                    |
+| 硬件         | 型号/说明                                                    |
+| ------------ | ------------------------------------------------------------ |
+| 主控板       | 树莓派 5                                                     |
+| 摄像头       | 淘宝上说是树莓派专用的摄像头,很便宜哈哈,20块                 |
+| 舵机         | MG996R 或 SG90（PWM 控制）                                   |
+| 舵机控制方式 | 最终使用脉冲控制(Servo2类)效果更好(pwm的方式注释掉了)（使用 `lgpio.tx_pwm` 控制） |
+| 激光模块     | 普通红色激光笔（GPIO 控制开关）需要5v                        |
+| 电源         | PD 5V 3A 电源或移动电源                                      |
 
 
 
@@ -75,7 +73,8 @@
 ### 数据集结构（以 `data.yaml` 为例）：
 
 ```
-yaml复制编辑path: C:\Users\Buer_vakabauta\Desktop\predect\dataset
+yaml
+path: C:\Users\Buer_vakabauta\Desktop\predect\dataset
 train: train/images
 val: val/images
 nc: 16
@@ -87,22 +86,19 @@ names:
 ### 训练命令
 
 ```
-bash复制编辑yolo detect train \
+bash
+yolo detect train \
   model=yolov8n.pt \
   data=data.yaml \
   epochs=100 \
   imgsz=640 \
   batch=16 \
-  name=hex_classifier
 ```
 
 ### 导出 ONNX 模型
 
 ```
 bash
-
-
-复制编辑
 yolo export model=runs/detect/hex_classifier/weights/best.pt format=onnx
 ```
 
@@ -135,9 +131,8 @@ yolo export model=runs/detect/hex_classifier/weights/best.pt format=onnx
 
 ## 🔄 7. 通信模块（serial_task.py）
 
-- 支持与 STM32/下位机串口通信
+- 与 STM32/下位机串口通信
 - 后台线程接收串口消息
-- 异常处理健壮性加强（防止 `bad file descriptor`）
 
 ------
 
@@ -160,21 +155,18 @@ yolo export model=runs/detect/hex_classifier/weights/best.pt format=onnx
 
 ------
 
-## 📂 9. 项目结构建议
+## 📂 9. 项目结构
 
 ```
-bash复制编辑yolov8_laser_project/
+bash
+yolov8_laser_project/
 ├── main.py                # 主控制逻辑
 ├── camera.py              # 摄像头图像采集模块
 ├── servo.py               # 舵机控制模块（lgpio版）
 ├── serial_task.py         # 串口通信线程
 ├── yolodect.py            # ONNX模型推理
 ├── LaserTracker.py        # 激光点识别算法（基于颜色/亮度）
-├── weights/
-│   └── best.onnx          # 导出的ONNX模型
-├── dataset/
-│   ├── train/val/labels/images
-│   └── data.yaml
+├── best.onnx          # 导出的ONNX模型
 ```
 
 ------
@@ -183,16 +175,23 @@ bash复制编辑yolov8_laser_project/
 
 ```
 bash
-
-
-复制编辑
 python main.py
 ```
 
 主流程执行：
 
 1. 初始化相机并采集激光初始位置
+
 2. 自动或手动测距，计算 disx/disy
-3. 进行字符检测识别
-4. 激光点移动以靠近字符目标点（伺服控制）
-5. 等待输入或串口指令，完成任务
+
+3. 等待stm32输入串口指令，完成任务
+
+4. 进行字符检测识别
+
+5. 激光点移动以靠近字符目标点,先根据disx和disy进行数学几何计算移动到目标附近,再使用PID微调
+
+6. 到达目标后将信息传回stm32进行声光提示
+
+7. 循环到步骤3
+
+   
